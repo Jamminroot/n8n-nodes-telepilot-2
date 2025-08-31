@@ -9,7 +9,9 @@
       "Bash(npx gulp:*)",
       "Bash(n8n:*)",
       "Bash(open http://localhost:5678)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(git add:*)",
+      "Read(/Users/jamminroot/Downloads/**)"
     ],
     "deny": [],
     "ask": []

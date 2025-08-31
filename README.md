@@ -89,6 +89,16 @@ For a hassle-free experience, take one of these templates for self-hosting:
 
 ## Installation
 
+### ⚠️ Alpine Linux / Docker Users
+If you're using the standard n8n Docker image (which uses Alpine Linux), you'll need special installation steps. See [ALPINE_INSTALLATION.md](./ALPINE_INSTALLATION.md) for detailed instructions.
+
+**Quick fix for Docker:**
+```bash
+docker exec -it <your-n8n-container> sh -c "apk add --no-cache gcompat && cd ~/.n8n && npm install n8n-nodes-telepilot-2"
+```
+
+## Standard Installation
+
 ### Install as n8n community node
 
 To use this package in your n8n project, follow these steps:
