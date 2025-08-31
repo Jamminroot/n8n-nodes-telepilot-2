@@ -3,7 +3,7 @@ import { Container } from 'typedi';
 import {
 	IDataObject,
 	INodeType,
-	INodeTypeDescription, ITriggerFunctions, ITriggerResponse,
+	INodeTypeDescription, ITriggerFunctions, ITriggerResponse
 } from 'n8n-workflow';
 
 const debug = require('debug')('telepilot-trigger')
@@ -11,23 +11,23 @@ const debug = require('debug')('telepilot-trigger')
 import {TelePilotNodeConnectionManager, TelepilotAuthState} from "./TelePilotNodeConnectionManager";
 import { TDLibUpdateEvents } from './tdlib/updateEvents';
 import { TDLibUpdate } from './tdlib/types'
-import {Client} from "@telepilotco/tdl";
+import {Client} from "tdl";
 
 
 export class TelePilotTrigger implements INodeType {
 	description: INodeTypeDescription = {
 		// Basic node details will go here
-		displayName: 'Telegram CoPilot Trigger',
+		displayName: 'TelePilot2 Trigger',
 		name: 'telePilotTrigger',
 		icon: 'file:TelePilot.svg',
 		group: ['trigger'],
 		version: 1,
-		description: 'Your Personal Telegram CoPilot Listener',
+		description: 'Your Personal TelePilot2 Listener',
 		defaults: {
-			name: 'TelePilot Trigger',
+			name: 'TelePilot2 Trigger',
 		},
 		inputs: [],
-		outputs: ['main'],
+		outputs: ['main'] as any,
 		credentials: [
 			{
 				name: 'telePilotApi',

@@ -1,8 +1,9 @@
 import 'reflect-metadata';
 import { Service } from 'typedi';
 import {IDataObject} from "n8n-workflow";
-const { Client } = require('@telepilotco/tdl');
-const tdl = require('@telepilotco/tdl');
+const { Client } = require('tdl');
+const tdl = require('tdl');
+const { getTdjson } = require('prebuilt-tdlib');
 // const childProcess = require('child_process');
 
 const debug = require('debug')('telepilot-cm')
@@ -12,8 +13,8 @@ const fs = require('fs/promises');
 var pjson = require('../../package.json');
 const nodeVersion = pjson.version;
 
-const binaryVersion = pjson.dependencies["@telepilotco/tdlib-binaries-prebuilt"].replace("^", "");
-const addonVersion = pjson.dependencies["@telepilotco/tdl"].replace("^", "");
+const binaryVersion = pjson.dependencies["prebuilt-tdlib"].replace("^", "");
+const addonVersion = pjson.dependencies["tdl"].replace("^", "");
 
 export enum TelepilotAuthState {
 	NO_CONNECTION = "NO_CONNECTION",
@@ -199,17 +200,21 @@ export class TelePilotNodeConnectionManager {
 
 	private initClient(apiId: number, apiHash: string) {
 		let clients_keys = Object.keys(this.clientSessions);
-		let {libFolder, libFile} = this.locateBinaryModules();
 		debug("nodeVersion:", nodeVersion);
 		debug("binaryVersion:", binaryVersion);
 		debug("addonVersion:", addonVersion);
 		if (!clients_keys.includes(apiId.toString()) || this.clientSessions[apiId] === undefined) {
+			// Configure tdl with the prebuilt-tdlib binary path (only once)
 			if (!this.tdlConfigured) {
-				tdl.configure({
-					libdir: libFolder,
-					tdjson: libFile
-				});
-				this.tdlConfigured = true;
+				try {
+					const tdjsonPath = getTdjson();
+					debug("Using TDLib binary at:", tdjsonPath);
+					tdl.configure({ tdjson: tdjsonPath });
+					this.tdlConfigured = true;
+				} catch (e) {
+					debug("Error configuring tdl:", e);
+					// Try to continue without explicit configuration
+				}
 			}
 			return tdl.createClient({
 				apiId,
@@ -228,7 +233,7 @@ export class TelePilotNodeConnectionManager {
 
 // @ts-ignore
 	private locateBinaryModules() {
-		let _lib_prebuilt_package = "tdlib-binaries-prebuilt/prebuilds/";
+		let _lib_prebuilt_package = "prebuilt-tdlib/";
 
 		let libFile = "";
 		const libFolder = __dirname + "/../../../../" + _lib_prebuilt_package;

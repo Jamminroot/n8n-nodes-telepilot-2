@@ -64,6 +64,8 @@ import {
 	variable_thumbnail_width,
 	variable_thumbnail_height,
 	variable_thumbnail_file_path,
+	variable_albums_limit,
+	variable_albums_after_timestamp,
 } from './common.descriptions'
 
 const debug = require('debug')('telepilot-node');
@@ -71,14 +73,14 @@ const debug = require('debug')('telepilot-node');
 export class TelePilot implements INodeType {
 	description: INodeTypeDescription = {
 		// Basic node details will go here
-		displayName: 'Telegram CoPilot',
+		displayName: 'TelePilot2',
 		name: 'telePilot',
 		icon: 'file:TelePilot.svg',
 		group: ['transform'],
 		version: 1,
 		description: 'Your Personal Telegram CoPilot',
 		defaults: {
-			name: 'Telegram CoPilot',
+			name: 'TelePilot2',
 		},
 		credentials: [
 			{
@@ -86,8 +88,8 @@ export class TelePilot implements INodeType {
 				required: true,
 			},
 		],
-		inputs: ['main'],
-		outputs: ['main'],
+		inputs: ['main'] as any,
+		outputs: ['main'] as any,
 		properties: [
 			optionResources,
 			operationLogin,
@@ -142,6 +144,10 @@ export class TelePilot implements INodeType {
 			variable_thumbnail_width,
 			variable_thumbnail_height,
 			variable_thumbnail_file_path,
+			
+			// Variables for getAlbums
+			variable_albums_limit,
+			variable_albums_after_timestamp,
 
 			//Variable Custom Request
 			variable_json,
@@ -549,7 +555,272 @@ export class TelePilot implements INodeType {
 					returnData.push(result);
 				}
 			} else if (resource === 'message') {
-				if (operation === 'getMessage') {
+				if (operation === 'getAlbums') {
+					const chat_id = this.getNodeParameter('chat_id', 0) as string;
+					const albumsLimit = this.getNodeParameter('albumsLimit', 0) as number;
+					const afterTimestamp = this.getNodeParameter('afterTimestamp', 0) as number;
+					
+					// Validate albumsLimit
+					const limit = Math.min(Math.max(albumsLimit || 10, 1), 50);
+					
+					// Fetch messages from chat
+					const batchSize = 100;
+					let allMessages: any[] = [];
+					let fromMessageId = 0;
+					let fetchIterations = 0;
+					const maxIterations = 100; // Increased to ensure we get complete albums
+					
+					// Status tracking
+					let timestampReached = false;
+					let albumLimitReached = false;
+					
+					// Track albums that we need to complete
+					const albumsToComplete = new Set<string>();
+					const completeAlbums = new Set<string>();
+					
+					// Determine if we should use timestamp filter
+					const useTimestampFilter = afterTimestamp > 0;
+					
+					// Keep fetching until we meet our conditions
+					while (fetchIterations < maxIterations) {
+						fetchIterations++;
+						
+						const batch = await client.invoke({
+							_: 'getChatHistory',
+							chat_id,
+							from_message_id: fromMessageId,
+							offset: -1,
+							limit: batchSize,
+							only_local: false,
+						});
+						
+						// Check if we got any messages
+						if (!batch.messages || batch.messages.length === 0) {
+							// No more messages available
+							break;
+						}
+						
+						// Process messages based on timestamp filter
+						let messagesToAdd = batch.messages;
+						let hitTimestampBoundary = false;
+						
+						if (useTimestampFilter) {
+							// Check if we've hit the timestamp boundary
+							const oldestInBatch = batch.messages[batch.messages.length - 1];
+							if (oldestInBatch && oldestInBatch.date <= afterTimestamp) {
+								hitTimestampBoundary = true;
+								timestampReached = true;
+								// Still add messages that are after the timestamp
+								messagesToAdd = batch.messages.filter((msg: any) => msg.date > afterTimestamp);
+							}
+						}
+						
+						// Add messages to our collection
+						allMessages.push(...messagesToAdd);
+						
+						// Track album IDs from new messages
+						for (const msg of messagesToAdd) {
+							const albumId = msg.media_album_id;
+							if (albumId && albumId !== '0' && albumId !== 0) {
+								const albumIdStr = String(albumId);
+								// If this album is in our "to complete" set, check if we need more messages
+								if (!completeAlbums.has(albumIdStr)) {
+									albumsToComplete.add(albumIdStr);
+								}
+							}
+						}
+						
+						// Determine which albums we consider "complete" for stopping purposes
+						// An album is complete if we haven't seen new messages for it in the last batch
+						const albumsInCurrentBatch = new Set(
+							batch.messages
+								.filter((msg: any) => msg.media_album_id && msg.media_album_id !== '0' && msg.media_album_id !== 0)
+								.map((msg: any) => String(msg.media_album_id))
+						);
+						
+						// Mark albums as complete if they weren't in the current batch
+						for (const albumId of albumsToComplete) {
+							if (!albumsInCurrentBatch.has(albumId)) {
+								completeAlbums.add(albumId);
+							}
+						}
+						
+						// Check if we have enough COMPLETE albums
+						if (completeAlbums.size >= limit) {
+							albumLimitReached = true;
+						}
+						
+						// Stopping conditions:
+						// 1. If we have enough complete albums AND either no timestamp filter or we've hit the timestamp
+						// 2. If we hit the timestamp boundary and have fetched messages for all incomplete albums
+						
+						let shouldStop = false;
+						
+						if (useTimestampFilter && hitTimestampBoundary) {
+							// We've hit the timestamp, but need to ensure albums are complete
+							// Check if all albums we're tracking are complete
+							const incompleteAlbums = new Set([...albumsToComplete].filter(id => !completeAlbums.has(id)));
+							
+							// Continue fetching if we have incomplete albums that started before the timestamp
+							if (incompleteAlbums.size === 0 || completeAlbums.size >= limit) {
+								shouldStop = true;
+							}
+						} else if (!useTimestampFilter && albumLimitReached) {
+							// No timestamp filter, check if we have enough complete albums
+							// But we need to ensure the albums we're returning are complete
+							const incompleteAlbumsInLimit = new Set(
+								[...albumsToComplete].slice(0, limit).filter(id => !completeAlbums.has(id))
+							);
+							
+							if (incompleteAlbumsInLimit.size === 0) {
+								shouldStop = true;
+							}
+						}
+						
+						if (shouldStop) {
+							break;
+						}
+						
+						// Prepare for next iteration
+						const lastMessage = batch.messages[batch.messages.length - 1];
+						if (lastMessage) {
+							fromMessageId = lastMessage.id;
+						} else {
+							// No more messages to fetch
+							break;
+						}
+						
+						// Handle case where TDLib returns very small batches
+						// Continue fetching even with small batches to ensure we get complete albums
+						if (batch.messages.length < 5 && !hitTimestampBoundary) {
+							// Small batch but haven't hit boundary yet, continue
+							continue;
+						}
+						
+						// Safety check: stop if we're not making progress and have enough complete albums
+						if (batch.messages.length === 1 && fetchIterations > 20 && completeAlbums.size >= limit) {
+							break;
+						}
+					}
+					
+					// Group messages into albums
+					const albumGroups: { [key: string]: any[] } = {};
+					const standaloneMessages: any[] = [];
+					
+					for (const msg of allMessages) {
+						const albumId = msg.media_album_id;
+						if (albumId && albumId !== '0' && albumId !== 0) {
+							if (!albumGroups[albumId]) {
+								albumGroups[albumId] = [];
+							}
+							albumGroups[albumId].push(msg);
+						} else {
+							standaloneMessages.push(msg);
+						}
+					}
+					
+					// Update album_limit_reached based on actual grouped albums
+					const actualAlbumCount = Object.keys(albumGroups).length;
+					if (actualAlbumCount >= limit) {
+						albumLimitReached = true;
+					}
+					
+					// Prepare album results
+					const albums = [];
+					let albumCount = 0;
+					
+					for (const [albumId, messages] of Object.entries(albumGroups)) {
+						if (albumCount >= limit) break;
+						
+						// Sort messages in album by ID
+						messages.sort((a, b) => {
+							const idA = BigInt(a.id || 0);
+							const idB = BigInt(b.id || 0);
+							if (idA < idB) return -1;
+							if (idA > idB) return 1;
+							return 0;
+						});
+						
+						// Extract caption from first message with content
+						let caption = '';
+						for (const msg of messages) {
+							if (msg.content) {
+								if (msg.content.caption?.text) {
+									caption = msg.content.caption.text;
+									break;
+								} else if (msg.content.text?.text) {
+									caption = msg.content.text.text;
+									break;
+								}
+							}
+						}
+						
+						// Check if this album is marked as complete
+						const isComplete = completeAlbums.has(albumId);
+						
+						albums.push({
+							album_id: albumId,
+							chat_id: chat_id,
+							message_count: messages.length,
+							first_message_id: messages[0].id,
+							last_message_id: messages[messages.length - 1].id,
+							date: messages[0].date,
+							caption: caption,
+							is_complete: isComplete,
+							messages: messages,
+						});
+						
+						albumCount++;
+					}
+					
+					// Add standalone messages if we need more items and haven't reached limit
+					if (albumCount < limit) {
+						const standaloneToAdd = Math.min(limit - albumCount, standaloneMessages.length);
+						for (let i = 0; i < standaloneToAdd; i++) {
+							const msg = standaloneMessages[i];
+							let caption = '';
+							if (msg.content) {
+								if (msg.content.caption?.text) {
+									caption = msg.content.caption.text;
+								} else if (msg.content.text?.text) {
+									caption = msg.content.text.text;
+								}
+							}
+							
+							albums.push({
+								album_id: '0', // Indicates standalone message
+								chat_id: chat_id,
+								message_count: 1,
+								first_message_id: msg.id,
+								last_message_id: msg.id,
+								date: msg.date,
+								caption: caption,
+								is_complete: true, // Standalone messages are always complete
+								messages: [msg],
+							});
+						}
+					}
+					
+					// Count complete vs incomplete albums in the results
+					const completeAlbumsInResults = albums.filter(a => a.album_id !== '0' && a.is_complete).length;
+					const incompleteAlbumsInResults = albums.filter(a => a.album_id !== '0' && !a.is_complete).length;
+					
+					returnData.push({
+						albums: albums,
+						total_albums_found: Object.keys(albumGroups).length,
+						total_standalone_found: standaloneMessages.length,
+						total_messages_processed: allMessages.length,
+						fetch_iterations: fetchIterations,
+						timestamp_reached: timestampReached,
+						album_limit_reached: albumLimitReached,
+						complete_albums_count: completeAlbumsInResults,
+						incomplete_albums_count: incompleteAlbumsInResults,
+						filters_applied: {
+							max_albums: limit,
+							after_timestamp: afterTimestamp,
+						},
+					});
+				} else if (operation === 'getMessage') {
 					const chat_id = this.getNodeParameter('chat_id', 0) as string;
 					const message_id = this.getNodeParameter('message_id', 0) as string;
 					const result = await client.invoke({

@@ -1,1 +1,1 @@
-sudo docker build . --network=host --no-cache -t n8n-alpine-dockerfile-installation --progress=plain
+sudo docker build -f Dockerfile .. --network=host --no-cache -t n8n-alpine-dockerfile-installation --progress=plain

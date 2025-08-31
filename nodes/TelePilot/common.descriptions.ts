@@ -329,6 +329,11 @@ export const operationMessage: INodeProperties = {
 			action: 'Forward messages',
 		},
 		{
+			name: 'Get Albums',
+			value: 'getAlbums',
+			action: 'Get grouped albums from chat',
+		},
+		{
 			name: 'Get Message Link',
 			value: 'getMessageLink',
 			action: 'Get direct link to a specific message in a group or supergroup',
@@ -448,6 +453,7 @@ export const variable_chat_id: INodeProperties = {
 		operation: [
 			'getChat',
 			'getChatHistory',
+			'getAlbums',
 			'sendMessage',
 			'sendMessagePhoto',
 			'sendMessageVideo',
@@ -1117,4 +1123,39 @@ export const variable_thumbnail_file_path: INodeProperties = {
 	},
 	default: '',
 	placeholder: '/home/telepilot/my-video-thumbnail.jpeg'
+};
+
+// Parameters for getAlbums operation
+export const variable_albums_limit: INodeProperties = {
+	displayName: 'Maximum Albums to Fetch',
+	name: 'albumsLimit',
+	type: 'number' as NodePropertyTypes,
+	displayOptions: {
+		show: {
+			operation: ['getAlbums'],
+			resource: ['message'],
+		},
+	},
+	default: 10,
+	placeholder: '10',
+	description: 'Maximum number of albums to fetch (1-50)',
+	typeOptions: {
+		minValue: 1,
+		maxValue: 50,
+	},
+};
+
+export const variable_albums_after_timestamp: INodeProperties = {
+	displayName: 'Fetch Albums After Timestamp',
+	name: 'afterTimestamp', 
+	type: 'number' as NodePropertyTypes,
+	displayOptions: {
+		show: {
+			operation: ['getAlbums'],
+			resource: ['message'],
+		},
+	},
+	default: 0,
+	placeholder: '0',
+	description: 'Unix timestamp in seconds. Only fetch albums created after this time. Use 0 or -1 to fetch all albums.',
 };

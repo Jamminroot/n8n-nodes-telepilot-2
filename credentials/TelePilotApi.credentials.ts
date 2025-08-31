@@ -6,7 +6,7 @@ import {
 
 export class TelePilotApi implements ICredentialType {
 	name = 'telePilotApi';
-	displayName = 'Personal Telegram CoPilot API';
+	displayName = 'TelePilot2 API';
 	properties: INodeProperties[] = [
 		{
 			displayName: 'App api_id',

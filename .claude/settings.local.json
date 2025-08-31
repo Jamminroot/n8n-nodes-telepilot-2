@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm link:*)",
+      "Bash(npm outdated)",
+      "Bash(npm view:*)",
+      "Bash(npm:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx gulp:*)",
+      "Bash(n8n:*)",
+      "Bash(open http://localhost:5678)",
+      "Bash(cat:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
