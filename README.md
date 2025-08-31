@@ -4,8 +4,14 @@
 
 ## What's New in TelePilot2
 
+### Version 0.7.2 (Latest)
+- **Docker Support**: Use Debian-based n8n image for full compatibility
+- **Prebuilt binaries**: Works out of the box with prebuilt-tdlib
+- **No compilation needed**: All dependencies work without building from source
+- **Simplified installation**: Just install and run
+
 ### Version 0.6.x Updates
-- **Updated TDLib**: Now using the latest TDLib (Telegram Database Library) for improved performance and compatibility
+- **Updated TDLib**: Using TDLib 1.8.14 for improved performance and compatibility
 - **New GetAlbums Operation**: Fetch grouped albums (media groups) from Telegram chats with advanced filtering:
   - Retrieve up to 50 albums at once
   - Filter albums by timestamp (get albums after a specific time)
@@ -89,15 +95,58 @@ For a hassle-free experience, take one of these templates for self-hosting:
 
 ## Installation
 
-### ⚠️ Alpine Linux / Docker Users
-If you're using the standard n8n Docker image (which uses Alpine Linux), you'll need special installation steps. See [ALPINE_INSTALLATION.md](./ALPINE_INSTALLATION.md) for detailed instructions.
+### Docker Users (Recommended)
 
-**Quick fix for Docker:**
+For Docker deployments, we provide a complete **Debian-based** solution with full native module compatibility:
+
+**Quick Start with Docker Compose:**
 ```bash
-docker exec -it <your-n8n-container> sh -c "apk add --no-cache gcompat && cd ~/.n8n && npm install n8n-nodes-telepilot-2"
+# Clone the repository
+git clone https://github.com/Jamminroot/n8n-nodes-telepilot-2.git
+cd n8n-nodes-telepilot-2/docker
+
+# Start everything (n8n + PostgreSQL + Redis + TelePilot2)
+docker-compose up -d
+
+# n8n will be available at http://localhost:5678
 ```
 
-## Standard Installation
+**Features:**
+- **Based on Node.js 20 Debian (bookworm-slim)** for full glibc compatibility
+- **No Alpine Linux** - avoids musl libc issues with native modules
+- Includes PostgreSQL and Redis for production use
+- Automatic installation of n8n and TelePilot2
+- Native tdl module properly compiled for Debian
+- Easy update script for both n8n and TelePilot2
+
+**Updating n8n or TelePilot2:**
+```bash
+# Update both to latest versions
+./update.sh --all
+
+# Update only n8n to specific version
+./update.sh --n8n 1.20.0
+
+# Update only TelePilot2 to latest
+./update.sh --telepilot
+
+# Check current versions
+./update.sh
+```
+
+**Custom Dockerfile:**
+If you prefer to build your own image, use our **Debian-based** Dockerfile:
+```dockerfile
+FROM node:20-bookworm-slim
+# See docker/n8n/Dockerfile.debian for complete example
+```
+
+**Important:** 
+- **DO NOT use Alpine-based images** - they have compatibility issues with prebuilt-tdlib and native modules
+- **Always use Debian or Ubuntu-based images** for proper binary compatibility
+- The official n8n Alpine image will NOT work with TelePilot2's native dependencies
+
+### Standard Installation
 
 ### Install as n8n community node
 

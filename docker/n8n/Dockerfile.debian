@@ -1,0 +1,54 @@
+# Use Node.js 20 Debian base - NOT Alpine
+FROM node:20-bookworm-slim
+
+# Install required dependencies for n8n and native modules
+RUN apt-get update && \
+    apt-get install -y \
+        # Build essentials for native modules
+        build-essential \
+        python3 \
+        # Required for n8n
+        ca-certificates \
+        curl \
+        git \
+        # Required for some n8n nodes
+        openssh-client \
+        # Clean up
+        && apt-get clean \
+        && rm -rf /var/lib/apt/lists/*
+
+# Create n8n user
+RUN useradd -m -d /home/n8n -s /bin/bash n8n && \
+    mkdir -p /home/n8n/.n8n/nodes && \
+    chown -R n8n:n8n /home/n8n
+
+# Switch to n8n user
+USER n8n
+WORKDIR /home/n8n
+
+# Install n8n globally
+RUN npm install -g n8n@latest
+
+# Install TelePilot2 with proper native module support
+RUN cd ~/.n8n/nodes && \
+    npm init -y && \
+    npm install n8n-nodes-telepilot-2@latest && \
+    # Ensure tdl native module is properly built for Debian
+    cd node_modules/tdl && \
+    npm rebuild && \
+    cd ../..
+
+# Set n8n environment variables
+ENV N8N_PORT=5678
+ENV N8N_PROTOCOL=http
+ENV NODE_ENV=production
+
+# Expose n8n port
+EXPOSE 5678
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:5678/healthz || exit 1
+
+# Start n8n
+CMD ["n8n", "start"]
