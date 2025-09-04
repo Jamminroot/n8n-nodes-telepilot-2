@@ -11,7 +11,20 @@
       "Bash(open http://localhost:5678)",
       "Bash(cat:*)",
       "Bash(git add:*)",
-      "Read(/Users/jamminroot/Downloads/**)"
+      "Read(/Users/jamminroot/Downloads/**)",
+      "WebSearch",
+      "Bash(ssh:*)",
+      "Bash(scp:*)",
+      "Bash(chmod:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(docker build:*)",
+      "Bash(open:*)",
+      "Bash(docker:*)",
+      "Bash(/dev/null)",
+      "Bash(curl:*)",
+      "Bash(git restore:*)",
+      "Bash(rm:*)"
     ],
     "deny": [],
     "ask": []

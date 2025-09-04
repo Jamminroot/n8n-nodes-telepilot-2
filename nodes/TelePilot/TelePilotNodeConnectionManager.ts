@@ -3,10 +3,11 @@ import { Service } from 'typedi';
 import {IDataObject} from "n8n-workflow";
 const { Client } = require('tdl');
 const tdl = require('tdl');
+const debug = require('debug')('telepilot-cm')
+
+// Import getTdjson from prebuilt-tdlib
 const { getTdjson } = require('prebuilt-tdlib');
 // const childProcess = require('child_process');
-
-const debug = require('debug')('telepilot-cm')
 
 const fs = require('fs/promises');
 

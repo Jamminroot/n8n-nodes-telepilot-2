@@ -95,59 +95,6 @@ For a hassle-free experience, take one of these templates for self-hosting:
 
 ## Installation
 
-### Docker Users (Recommended)
-
-For Docker deployments, we provide a complete **Debian-based** solution with full native module compatibility:
-
-**Quick Start with Docker Compose:**
-```bash
-# Clone the repository
-git clone https://github.com/Jamminroot/n8n-nodes-telepilot-2.git
-cd n8n-nodes-telepilot-2/docker
-
-# Start everything (n8n + PostgreSQL + Redis + TelePilot2)
-docker-compose up -d
-
-# n8n will be available at http://localhost:5678
-```
-
-**Features:**
-- **Based on Node.js 20 Debian (bookworm-slim)** for full glibc compatibility
-- **No Alpine Linux** - avoids musl libc issues with native modules
-- Includes PostgreSQL and Redis for production use
-- Automatic installation of n8n and TelePilot2
-- Native tdl module properly compiled for Debian
-- Easy update script for both n8n and TelePilot2
-
-**Updating n8n or TelePilot2:**
-```bash
-# Update both to latest versions
-./update.sh --all
-
-# Update only n8n to specific version
-./update.sh --n8n 1.20.0
-
-# Update only TelePilot2 to latest
-./update.sh --telepilot
-
-# Check current versions
-./update.sh
-```
-
-**Custom Dockerfile:**
-If you prefer to build your own image, use our **Debian-based** Dockerfile:
-```dockerfile
-FROM node:20-bookworm-slim
-# See docker/n8n/Dockerfile.debian for complete example
-```
-
-**Important:** 
-- **DO NOT use Alpine-based images** - they have compatibility issues with prebuilt-tdlib and native modules
-- **Always use Debian or Ubuntu-based images** for proper binary compatibility
-- The official n8n Alpine image will NOT work with TelePilot2's native dependencies
-
-### Standard Installation
-
 ### Install as n8n community node
 
 To use this package in your n8n project, follow these steps:

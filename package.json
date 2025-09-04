@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-telepilot-2",
-  "version": "0.6.4",
+  "version": "0.7.2",
   "description": "TelePilot2 - Telegram automation nodes for n8n",
   "keywords": [
     "telepilot.co",
@@ -62,11 +62,5 @@
     "prebuilt-tdlib": "^0.1008052.1",
     "debug": "^4.4.1",
     "typedi": "^0.10.0"
-  },
-  "optionalDependencies": {
-    "@prebuilt-tdlib/linux-x64-glibc": "^0.1008052.1",
-    "@prebuilt-tdlib/linux-arm64-glibc": "^0.1008052.1",
-    "@prebuilt-tdlib/darwin-x64": "^0.1008052.1",
-    "@prebuilt-tdlib/darwin-arm64": "^0.1008052.1"
   }
 }
