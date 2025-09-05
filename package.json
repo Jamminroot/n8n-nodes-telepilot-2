@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-telepilot-2",
-  "version": "0.7.2",
+  "version": "0.7.4",
   "description": "TelePilot2 - Telegram automation nodes for n8n",
   "keywords": [
     "telepilot.co",

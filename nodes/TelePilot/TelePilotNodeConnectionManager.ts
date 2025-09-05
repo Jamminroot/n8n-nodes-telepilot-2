@@ -181,13 +181,40 @@ export class TelePilotNodeConnectionManager {
 			let clientSession = new ClientSession(client, TelepilotAuthState.NO_CONNECTION, phoneNumber);
 			this.clientSessions[apiId] = clientSession;
 		}
-		const authHandler = (update: IDataObject) => {
+		const authHandler = async (update: IDataObject) => {
 			if (update._ === "updateAuthorizationState") {
 				debug('authHandler.Got updateAuthorizationState:', JSON.stringify(update, null, 2))
 				const authorization_state = update.authorization_state as IDataObject;
 				if (this.clientSessions[apiId] !== undefined) {
 					this.clientSessions[apiId].authState = getEnumFromString(TelepilotAuthState, authorization_state._ as string);
 					debug("set clientSession.authState to " + this.clientSessions[apiId].authState)
+					
+					// Handle authorizationStateWaitTdlibParameters
+					if (authorization_state._ === "authorizationStateWaitTdlibParameters") {
+						debug("Handling authorizationStateWaitTdlibParameters - sending setTdlibParameters");
+						try {
+							await this.clientSessions[apiId].client.invoke({
+								_: 'setTdlibParameters',
+								api_id: apiId,
+								api_hash: apiHash,
+								system_language_code: 'en',
+								device_model: 'n8n-telepilot',
+								system_version: process.platform,
+								application_version: nodeVersion,
+								database_directory: this.getTdDatabasePathForClient(apiId),
+								files_directory: this.getTdFilesPathForClient(apiId),
+								database_encryption_key: Buffer.from(''),
+								use_message_database: true,
+								use_secret_chats: false,
+								use_file_database: true,
+								use_chat_info_database: true,
+								enable_storage_optimizer: true
+							});
+							debug("setTdlibParameters sent successfully");
+						} catch (e) {
+							debug("Error sending setTdlibParameters:", e);
+						}
+					}
 				}
 			}
 		}
@@ -217,15 +244,9 @@ export class TelePilotNodeConnectionManager {
 					// Try to continue without explicit configuration
 				}
 			}
+			// Create client without parameters - they will be set via setTdlibParameters
 			return tdl.createClient({
-				apiId,
-				apiHash,
-				databaseDirectory: this.getTdDatabasePathForClient(apiId),
-				filesDirectory: this.getTdFilesPathForClient(apiId),
-				nodeVersion,
-				binaryVersion,
-				addonVersion
-				// useTestDc: true
+				// Don't pass parameters here - let the authHandler send them via setTdlibParameters
 			});
 		} else {
 			return this.clientSessions[apiId].client;
