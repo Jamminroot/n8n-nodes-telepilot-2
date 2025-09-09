@@ -36,11 +36,6 @@ Here is environment compatibility overview:
 | windows | x64 | NO  |
 | windows | arm64 | NO  |
 
-If you are interested in following our updates and news, check out:
-
-- our telegram channel https://t.me/telepilotco OR
-- our website https://telepilot.co
-
 
 ## Overview
 
@@ -55,17 +50,6 @@ At [TelePilot](https://telepilot.co), we prioritize your privacy. We do not have
 which runs on your self-hosted n8n instance. The choice of hosting environment is entirely up to you. 
 
 Whether you prefer the convenience of cloud hosting or the control of running it on your own machine, TelePilot allows you to make that decision. 
-
-Probably the fastest way to get everything up and running would be using Railway n8n template:
-
- - [Railway](https://railway.app/new/template/zo8wVU)
-
-If you are technically inclined, you can even launch it on your homelab or Raspberry Pi. 
-For a hassle-free experience, take one of these templates for self-hosting:
-
- - [n8n on Cloudron](https://www.cloudron.io/store/io.n8n.cloudronapp.html)
- - [YunoHost](https://yunohost.org/en/app_n8n) / [YunoHost n8n app on github](https://github.com/YunoHost-Apps/n8n_ynh)
- - https://timeweb.cloud/ ?
 
 ## Features
 
