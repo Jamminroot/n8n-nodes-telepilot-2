@@ -63,8 +63,8 @@ export class TelePilotNodeConnectionManager {
 	private clientSessions: Record<number, ClientSession> = {};
 	private tdlConfigured: boolean = false;
 
-	private TD_DATABASE_PATH_PREFIX = process.env.HOME + "/.n8n/nodes/node_modules/@telepilotco/n8n-nodes-telepilot/db"
-	private TD_FILES_PATH_PREFIX = process.env.HOME + "/.n8n/nodes/node_modules/@telepilotco/n8n-nodes-telepilot/db"
+	private TD_DATABASE_PATH_PREFIX = process.env.HOME + "/.n8n/telepilot2_sessions"
+	private TD_FILES_PATH_PREFIX = process.env.HOME + "/.n8n/telepilot2_sessions"
 
 
 	constructor() {
