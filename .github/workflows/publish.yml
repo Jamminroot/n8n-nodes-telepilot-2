@@ -73,13 +73,22 @@ jobs:
         run: |
           mkdir -p ~/.n8n/nodes && cp n8n-nodes-telepilot-2-${{ needs.build.outputs.PACKAGE_VERSION }}.tgz ~/.n8n/nodes && cd ~/.n8n/nodes
           npm install n8n-nodes-telepilot-2-${{ needs.build.outputs.PACKAGE_VERSION }}.tgz
+      - name: Install n8n globally with retry
+        run: |
+          for i in 1 2 3; do
+            echo "Attempt $i: npm install -g n8n@2.8.3"
+            npm install -g n8n@2.8.3 && break
+            echo "Attempt $i failed, waiting 15s..."
+            sleep 15
+          done
+          which n8n
       - name: Run n8n in Ubuntu n8n
         run: |
-          N8N_HOST=0.0.0.0 N8N_PORT=5678 N8N_ENCRYPTION_KEY=${{ secrets.N8N_KEY }} npx --yes n8n@2.8.3 \
+          N8N_HOST=0.0.0.0 N8N_PORT=5678 N8N_ENCRYPTION_KEY=${{ secrets.N8N_KEY }} n8n \
             import:credentials -i ~/.n8n/nodes/node_modules/n8n-nodes-telepilot-2/deploy/test-n8n-imports/credentials/credential-dummy.json
-          npx n8n@2.8.3 \
+          n8n \
             import:workflow -i ~/.n8n/nodes/node_modules/n8n-nodes-telepilot-2/deploy/test-n8n-imports/workflows/Telepilot_getMe.json
-          npx n8n@2.8.3 execute --id r2a0u5tez9fg1WW6 > execute-result.log 2>&1 || exit 0
+          n8n execute --id r2a0u5tez9fg1WW6 > execute-result.log 2>&1 || exit 0
       - name: Test Telepilot GetMe execution result
         run: |
           cat execute-result.log
