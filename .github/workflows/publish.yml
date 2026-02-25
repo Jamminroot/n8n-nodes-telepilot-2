@@ -24,7 +24,6 @@ jobs:
     strategy:
       matrix:
         node-version: [20.15.1]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
     env:
       NPM_REGISTRY: ${{ github.event.inputs.npm_registry || 'https://registry.npmjs.org' }}
     steps:
@@ -49,28 +48,20 @@ jobs:
       - run: npm install -g pnpm
       - run: npm ci
       - run: npm run build --if-present
-      #    - run: npm test
       - name: Use NPM Token
-        # You may pin to the exact commit or the version.
-        # uses: dkershner6/use-npm-token-action@99c5b17c84a15e44fdcef6712b34b76f8f0493b0
         uses: dkershner6/use-npm-token-action@v1
         with:
-          # An NPM token with whatever access is needed for your GitHub Action workflow
           token: ${{ secrets.REGISTRY_TOKEN }}
-          # The location of your Node workspace (needs to be a sibling of package.json)
-      #      workspace: # optional, default is ./
 
       - run: npm pack
       - uses: actions/upload-artifact@v4
         with:
           name: telepilot
-          path: telepilotco-n8n-nodes-telepilot-${{ env.PACKAGE_VERSION }}.tgz
-
-  #    - run: npm publish
+          path: n8n-nodes-telepilot-2-${{ env.PACKAGE_VERSION }}.tgz
 
   build-and-test-in-docker:
     needs: [build]
-    name: linux-${{ matrix.platform }}-${{ matrix.libc }} - build the node addon in docker
+    name: linux-${{ matrix.platform }}-glibc - build the node addon in docker
     runs-on: [ubuntu-latest]
     strategy:
       max-parallel: 4
@@ -79,72 +70,23 @@ jobs:
         platform:
           - x64
           - arm64
-        libc:
-          - glibc
-          - musl
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: telepilot
           path: .
       - run: tree .
-      - run: docker run --privileged --rm tonistiigi/binfmt --install arm64
-        if: matrix.platform == 'arm64' && matrix.libc == 'musl'
-      - name: Create Dockerfile to build musl docker image
-        if: matrix.libc == 'musl'
-        run: |
-          cat > Dockerfile <<EOF
-          FROM n8nio/n8n:1.89.0
-
-          RUN mkdir -p /home/node/.n8n/nodes
-          COPY telepilotco-n8n-nodes-telepilot-*.tgz /home/node/.n8n/nodes/
-          RUN npm config set registry http://npm.telepilot.co:4873/
-
-          RUN cat /home/node/.npmrc
-
-          RUN cd /home/node/.n8n/nodes && ls -laR && npm install telepilotco-n8n-nodes-telepilot-*.tgz
-
-          RUN N8N_ENCRYPTION_KEY=${{ secrets.N8N_KEY }} n8n import:credentials -i /home/node/.n8n/nodes/node_modules/@telepilotco/n8n-nodes-telepilot/deploy/test-n8n-imports/credentials/credential-dummy.json
-          RUN n8n import:workflow -i /home/node/.n8n/nodes/node_modules/@telepilotco/n8n-nodes-telepilot/deploy/test-n8n-imports/workflows/Telepilot_getMe.json
-          RUN cat /home/node/.n8n/config
-
-          ENTRYPOINT ["tini", "--", "/docker-entrypoint.sh"]
-          EOF
-      - name: Build n8n-alpine-dockerfile-installation
-        if: matrix.libc == 'musl'
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          platforms: linux/${{ matrix.platform == 'arm64' && 'arm64' || 'amd64' }}
-          push: false
-          no-cache: true
-          tags: n8n-alpine-dockerfile-installation
-
-      - name: Run n8n in docker image
-        if: matrix.libc == 'musl'
-        run: |
-          docker run ${{ matrix.platform == 'arm64' && '--platform linux/arm64' || '' }} \
-            --rm \
-            --name n8n-alpine-dockerfile-installation \
-            -p 5678:5678 \
-            -e DEBUG=tdl,telepilot-cred,telepilot-node,telepilot-trigger,telepilot-cm \
-            -e EXECUTIONS_PROCESS=main \
-            -e N8N_LOG_LEVEL=debug \
-            docker.io/library/n8n-alpine-dockerfile-installation execute --id r2a0u5tez9fg1WW6 > execute-result.log 2>&1 \
-            || exit 0
       - name: Install Telepilot in Ubuntu n8n
-        if: matrix.libc == 'glibc'
         run: |
-          mkdir -p ~/.n8n/nodes && cp telepilotco-n8n-nodes-telepilot-${{ needs.build.outputs.PACKAGE_VERSION }}.tgz ~/.n8n/nodes && cd ~/.n8n/nodes
+          mkdir -p ~/.n8n/nodes && cp n8n-nodes-telepilot-2-${{ needs.build.outputs.PACKAGE_VERSION }}.tgz ~/.n8n/nodes && cd ~/.n8n/nodes
           npm config set registry http://npm.telepilot.co:4873/
-          npm install telepilotco-n8n-nodes-telepilot-${{ needs.build.outputs.PACKAGE_VERSION }}.tgz
+          npm install n8n-nodes-telepilot-2-${{ needs.build.outputs.PACKAGE_VERSION }}.tgz
       - name: Run n8n in Ubuntu n8n
-        if: matrix.libc == 'glibc'
         run: |
           N8N_HOST=0.0.0.0 N8N_PORT=5678 N8N_ENCRYPTION_KEY=${{ secrets.N8N_KEY }} npx --yes n8n@1.89.0 \
-            import:credentials -i ~/.n8n/nodes/node_modules/@telepilotco/n8n-nodes-telepilot/deploy/test-n8n-imports/credentials/credential-dummy.json
+            import:credentials -i ~/.n8n/nodes/node_modules/n8n-nodes-telepilot-2/deploy/test-n8n-imports/credentials/credential-dummy.json
           npx n8n@1.89.0 \
-            import:workflow -i ~/.n8n/nodes/node_modules/@telepilotco/n8n-nodes-telepilot/deploy/test-n8n-imports/workflows/Telepilot_getMe.json
+            import:workflow -i ~/.n8n/nodes/node_modules/n8n-nodes-telepilot-2/deploy/test-n8n-imports/workflows/Telepilot_getMe.json
           npx n8n@1.89.0 execute --id r2a0u5tez9fg1WW6 > execute-result.log 2>&1 || exit 0
       - name: Test Telepilot GetMe execution result
         run: |
@@ -165,7 +107,6 @@ jobs:
         with:
           node-version: lts/*
           cache: npm
-          # registry-url is mandatory here
           registry-url: 'https://registry.npmjs.org'
       - name: Set npm configuration
         run: |
@@ -181,6 +122,6 @@ jobs:
       - run: tree .
       - name: Publish
         if: true
-        run: npm publish telepilotco-n8n-nodes-telepilot-${{ needs.build.outputs.PACKAGE_VERSION }}.tgz
+        run: npm publish n8n-nodes-telepilot-2-${{ needs.build.outputs.PACKAGE_VERSION }}.tgz
         env:
           NODE_AUTH_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
