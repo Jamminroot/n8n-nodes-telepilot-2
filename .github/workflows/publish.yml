@@ -79,7 +79,6 @@ jobs:
       - name: Install Telepilot in Ubuntu n8n
         run: |
           mkdir -p ~/.n8n/nodes && cp n8n-nodes-telepilot-2-${{ needs.build.outputs.PACKAGE_VERSION }}.tgz ~/.n8n/nodes && cd ~/.n8n/nodes
-          npm config set registry http://npm.telepilot.co:4873/
           npm install n8n-nodes-telepilot-2-${{ needs.build.outputs.PACKAGE_VERSION }}.tgz
       - name: Run n8n in Ubuntu n8n
         run: |
