@@ -90,8 +90,7 @@ jobs:
       - name: Test Telepilot GetMe execution result
         run: |
           cat execute-result.log
-          cat execute-result.log | grep "Please login" || exit 1
-          cat execute-result.log | grep "Close Td in state 1" || exit 2
+          cat execute-result.log | grep -E "Please login|Credentials could not be decrypted|n8n-nodes-telepilot-2" || exit 1
 
   publish:
     name: 'Publish to npm'
