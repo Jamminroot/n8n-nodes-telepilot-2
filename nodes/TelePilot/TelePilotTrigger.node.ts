@@ -3,16 +3,20 @@ import { Container } from 'typedi';
 import {
 	IDataObject,
 	INodeType,
-	INodeTypeDescription, ITriggerFunctions, ITriggerResponse
+	INodeTypeDescription,
+	ITriggerFunctions,
+	ITriggerResponse,
 } from 'n8n-workflow';
 
-const debug = require('debug')('telepilot-trigger')
+const debug = require('debug')('telepilot-trigger');
 
-import {TelePilotNodeConnectionManager, TelepilotAuthState} from "./TelePilotNodeConnectionManager";
+import {
+	TelePilotNodeConnectionManager,
+	TelepilotAuthState,
+} from './TelePilotNodeConnectionManager';
 import { TDLibUpdateEvents } from './tdlib/updateEvents';
-import { TDLibUpdate } from './tdlib/types'
-import {Client} from "tdl";
-
+import { TDLibUpdate } from './tdlib/types';
+import { Client } from 'tdl';
 
 export class TelePilotTrigger implements INodeType {
 	description: INodeTypeDescription = {
@@ -44,7 +48,7 @@ export class TelePilotTrigger implements INodeType {
 						name: '*',
 						value: '*',
 					},
-					...TDLibUpdateEvents
+					...TDLibUpdateEvents,
 				],
 				default: ['updateNewMessage', 'updateMessageContent'],
 			},
@@ -61,18 +65,17 @@ export class TelePilotTrigger implements INodeType {
 						name: 'ignoreGroups',
 						type: 'boolean',
 						default: false,
-					}
-				]
-			}
+					},
+				],
+			},
 		],
 	};
 	// The execute method will go here
 
-
 	async trigger(this: ITriggerFunctions): Promise<ITriggerResponse> {
 		const credentials = await this.getCredentials('telePilotApi');
 
-		const cM = Container.get(TelePilotNodeConnectionManager)
+		const cM = Container.get(TelePilotNodeConnectionManager);
 
 		let client: Client;
 		const clientSession = await cM.createClientSetAuthHandlerForPhoneNumberLogin(
@@ -80,12 +83,20 @@ export class TelePilotTrigger implements INodeType {
 			credentials?.apiHash as string,
 			credentials?.phoneNumber as string,
 		);
-		debug("trigger.clientSession.authState: " + clientSession.authState)
+		debug('trigger.clientSession.authState: ' + clientSession.authState);
 		if (clientSession.authState != TelepilotAuthState.WAIT_READY) {
-			await cM.closeLocalSession(credentials?.apiId as number)
-			this.emit([this.helpers.returnJsonArray([{a: "Telegram account not logged in. " +
-				"Please use ChatTrigger node together with loginWithPhoneNumber action. " +
-				"Please check our guide at https://telepilot.co/login-howto"}])])
+			await cM.closeLocalSession(credentials?.apiId as number);
+			this.emit([
+				this.helpers.returnJsonArray([
+					{
+						a:
+							'Telegram account not logged in. ' +
+							'Please use ChatTrigger node together with loginWithPhoneNumber action. ' +
+							'Please check our guide at https://telepilot.co/login-howto',
+					},
+				]),
+			]);
+			return { closeFunction: async () => {} };
 		}
 
 		client = clientSession.client;
@@ -93,18 +104,19 @@ export class TelePilotTrigger implements INodeType {
 		const updateEventsArray = this.getNodeParameter('events', '') as string;
 		const options = this.getNodeParameter('options', {}) as {
 			ignoreGroups: boolean;
-		}
+		};
 
 		const _emit = (data: IDataObject) => {
 			this.emit([this.helpers.returnJsonArray([data])]);
-		}
+		};
 
 		const _listener = (update: IDataObject | TDLibUpdate) => {
 			const incomingEvent = update._ as string;
 			if (updateEventsArray.includes(incomingEvent) || updateEventsArray.length == 0) {
 				if (options.ignoreGroups) {
 					const msg = update?.message;
-					const chatId = (typeof msg === 'object' && msg !== null && 'chat_id' in msg) ? msg.chat_id : undefined;
+					const chatId =
+						typeof msg === 'object' && msg !== null && 'chat_id' in msg ? msg.chat_id : undefined;
 					if (typeof chatId === 'number' && chatId < 0) {
 						return;
 					}
@@ -112,7 +124,7 @@ export class TelePilotTrigger implements INodeType {
 				debug('Got update: ' + JSON.stringify(update, null, 2));
 				_emit(update);
 			}
-		}
+		};
 
 		if (this.getMode() !== 'manual') {
 			client.on('update', _listener);
@@ -144,8 +156,8 @@ export class TelePilotTrigger implements INodeType {
 						client.removeListener('update', _listener2);
 						resolve(true);
 					}
-				}
-				client.on('update',	_listener2);
+				};
+				client.on('update', _listener2);
 			});
 		};
 

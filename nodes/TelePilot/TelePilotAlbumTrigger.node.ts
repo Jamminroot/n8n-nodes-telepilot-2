@@ -115,6 +115,7 @@ export class TelePilotAlbumTrigger implements INodeType {
 					},
 				]),
 			]);
+			return { closeFunction: async () => {} };
 		}
 
 		client = clientSession.client;

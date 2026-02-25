@@ -96,6 +96,9 @@ jobs:
     name: 'Publish to npm'
     needs: [build, build-and-test-in-docker]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/setup-node@v4
         with:
@@ -107,6 +110,6 @@ jobs:
           path: .
       - run: tree .
       - name: Publish
-        run: npm publish n8n-nodes-telepilot-2-${{ needs.build.outputs.PACKAGE_VERSION }}.tgz
+        run: npm publish n8n-nodes-telepilot-2-${{ needs.build.outputs.PACKAGE_VERSION }}.tgz --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.REGISTRY_TOKEN }}

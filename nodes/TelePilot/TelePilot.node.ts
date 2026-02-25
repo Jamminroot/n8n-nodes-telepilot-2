@@ -6,10 +6,14 @@ import {
 	INodeType,
 	INodeTypeDescription,
 	NodeOperationError,
-	IDataObject
+	IDataObject,
 } from 'n8n-workflow';
-import {Container} from 'typedi';
-import {sleep, TelePilotNodeConnectionManager, TelepilotAuthState} from './TelePilotNodeConnectionManager';
+import { Container } from 'typedi';
+import {
+	sleep,
+	TelePilotNodeConnectionManager,
+	TelepilotAuthState,
+} from './TelePilotNodeConnectionManager';
 
 import {
 	operationChat,
@@ -66,7 +70,7 @@ import {
 	variable_thumbnail_file_path,
 	variable_albums_limit,
 	variable_albums_after_timestamp,
-} from './common.descriptions'
+} from './common.descriptions';
 
 const debug = require('debug')('telepilot-node');
 
@@ -144,7 +148,7 @@ export class TelePilot implements INodeType {
 			variable_thumbnail_width,
 			variable_thumbnail_height,
 			variable_thumbnail_file_path,
-			
+
 			// Variables for getAlbums
 			variable_albums_limit,
 			variable_albums_after_timestamp,
@@ -160,7 +164,7 @@ export class TelePilot implements INodeType {
 			//Variables Group
 			variable_supergroup_id,
 			variable_audio_binary_property_name,
-			variable_send_as_voice
+			variable_send_as_voice,
 		],
 	};
 	// The execute method will go here
@@ -181,46 +185,45 @@ export class TelePilot implements INodeType {
 		let client;
 		if (resource === 'login') {
 			if (operation === 'login') {
-
 				const loginWithPhoneNumberHelpCommand = () => {
 					return {
-						text: "Following commands are supported:\n\n" +
-						"/start - start login via Phone Number and code (MFA is also supported if set)\n" +
-						"/stop - terminates current ClientSession for this Credential\n" +
-						"/clear - deletes local tdlib database, new login is required\n" +
-						"/cred - shows which Telegram Credential is used in this ChatTrigger (name + apiId, apiHash, phoneNumber)\n" +
-						"/stat - print all open Telegram sessions"
-					}
-				}
-				debug('loginWithPhoneNumber')
+						text:
+							'Following commands are supported:\n\n' +
+							'/start - start login via Phone Number and code (MFA is also supported if set)\n' +
+							'/stop - terminates current ClientSession for this Credential\n' +
+							'/clear - deletes local tdlib database, new login is required\n' +
+							'/cred - shows which Telegram Credential is used in this ChatTrigger (name + apiId, apiHash, phoneNumber)\n' +
+							'/stat - print all open Telegram sessions',
+					};
+				};
+				debug('loginWithPhoneNumber');
 				const items = this.getInputData();
 				const message = items[0].json['chatInput'] as string;
-				debug("message received: " + message)
+				debug('message received: ' + message);
 				if (message === undefined) {
 					returnData.push({
-						compatibility: "QR-Code login is disabled starting from version 0.3.0",
-						doc: "Please connect ChatTrigger to this node and read instructions:",
-						url: "https://telepilot.co/login-howto"
+						compatibility: 'QR-Code login is disabled starting from version 0.3.0',
+						doc: 'Please connect ChatTrigger to this node and read instructions:',
+						url: 'https://telepilot.co/login-howto',
 					});
-
-				} else if (message.startsWith("/")) {
-					switch(message) {
-						case "/start":
-							let authState = cM.getAuthStateForCredential(credentials?.apiId as number)
-							debug("loginWithPhoneNumber./start.authState: " + authState)
+				} else if (message.startsWith('/')) {
+					switch (message) {
+						case '/start':
+							let authState = cM.getAuthStateForCredential(credentials?.apiId as number);
+							debug('loginWithPhoneNumber./start.authState: ' + authState);
 							if (authState == TelepilotAuthState.NO_CONNECTION) {
 								await cM.createClientSetAuthHandlerForPhoneNumberLogin(
 									credentials?.apiId as number,
 									credentials?.apiHash as string,
 									credentials?.phoneNumber as string,
-								)
-								authState = cM.getAuthStateForCredential(credentials?.apiId as number)
-								debug("loginWithPhoneNumber./start2.authState: " + authState)
+								);
+								authState = cM.getAuthStateForCredential(credentials?.apiId as number);
+								debug('loginWithPhoneNumber./start2.authState: ' + authState);
 
 								if (authState == TelepilotAuthState.WAIT_CODE) {
-									returnData.push("Please provide AuthCode:");
+									returnData.push('Please provide AuthCode:');
 								} else if (authState == TelepilotAuthState.WAIT_PASSWORD) {
-									returnData.push("MFA Password:");
+									returnData.push('MFA Password:');
 								}
 							}
 							switch (authState) {
@@ -228,108 +231,121 @@ export class TelePilot implements INodeType {
 									await cM.clientLoginWithPhoneNumber(
 										credentials?.apiId as number,
 										credentials?.apiHash as string,
-										credentials?.phoneNumber as string
-									)
+										credentials?.phoneNumber as string,
+									);
 									await sleep(1000);
-									authState = cM.getAuthStateForCredential(credentials?.apiId as number)
+									authState = cM.getAuthStateForCredential(credentials?.apiId as number);
 									if (authState == TelepilotAuthState.WAIT_CODE) {
-										returnData.push("Please provide AuthCode:");
+										returnData.push('Please provide AuthCode:');
 									} else if (authState == TelepilotAuthState.WAIT_READY) {
-										returnData.push("You have succesfully logged in. You can close this chat and start using Telepilot.");
+										returnData.push(
+											'You have succesfully logged in. You can close this chat and start using Telepilot.',
+										);
 									} else {
-										returnData.push("Unexpected authState: " + authState);
+										returnData.push('Unexpected authState: ' + authState);
 									}
 									break;
 								case TelepilotAuthState.WAIT_READY:
-									returnData.push("You are logged in with phoneNumber " + credentials?.phoneNumber);
+									returnData.push('You are logged in with phoneNumber ' + credentials?.phoneNumber);
+									break;
+								case TelepilotAuthState.WAIT_TDLIB_PARAMS:
+								case TelepilotAuthState.WAIT_ENCRYPTION_KEY:
+								case TelepilotAuthState.NO_CONNECTION:
+									debug('authState still initializing: ' + authState);
+									returnData.push(
+										'Client is still initializing, please try /start again in a few seconds.',
+									);
 									break;
 								default:
-									debug("unexpected authState=" + authState)
-									returnData.push("unexpected authState=" + authState);
+									debug('unexpected authState=' + authState);
+									returnData.push('unexpected authState=' + authState);
 									break;
 							}
 							break;
-						case "/stop":
-							cM.closeLocalSession(credentials?.apiId as number)
-							returnData.push("Telegram Account " + credentials?.phoneNumber + " disconnected.");
+						case '/stop':
+							cM.closeLocalSession(credentials?.apiId as number);
+							returnData.push('Telegram Account ' + credentials?.phoneNumber + ' disconnected.');
 							break;
-						case "/clear":
-							cM.deleteLocalInstance(credentials?.apiId as number)
+						case '/clear':
+							cM.deleteLocalInstance(credentials?.apiId as number);
 							returnData.push({
-								text: "Telegram Account disconnected, local session has been cleared. Please login again. " +
-											"Please check our guide at https://telepilot.co/login-howto"
+								text:
+									'Telegram Account disconnected, local session has been cleared. Please login again. ' +
+									'Please check our guide at https://telepilot.co/login-howto',
 							});
 							break;
-						case "/cred":
+						case '/cred':
 							let credResult = credentials;
-							credResult.apiHash = "[DELETED]"
-							returnData.push(credResult)
+							credResult.apiHash = '[DELETED]';
+							returnData.push(credResult);
 							break;
-						case "/help":
+						case '/help':
 							returnData.push(loginWithPhoneNumberHelpCommand());
 							break;
-						case "/stat":
+						case '/stat':
 							returnData.push(cM.getAllClientSessions());
 							break;
 						default:
-							returnData.push("Command not supported." + loginWithPhoneNumberHelpCommand());
+							returnData.push('Command not supported.' + loginWithPhoneNumberHelpCommand());
 							break;
 					}
 				} else {
-					let authState = cM.getAuthStateForCredential(credentials?.apiId as number)
-					debug("loginWithPhoneNumber.authState: " + authState)
+					let authState = cM.getAuthStateForCredential(credentials?.apiId as number);
+					debug('loginWithPhoneNumber.authState: ' + authState);
 					switch (authState) {
 						case TelepilotAuthState.NO_CONNECTION:
 							returnData.push({
-								text: "Unexpected command. Please refer to https://telepilot.co/login-howto or try /help command\n"
+								text: 'Unexpected command. Please refer to https://telepilot.co/login-howto or try /help command\n',
 							});
 							break;
 						case TelepilotAuthState.WAIT_CODE:
 							const code = message;
-							await cM.clientLoginSendAuthenticationCode(
-								credentials?.apiId as number,
-								code
-							)
+							await cM.clientLoginSendAuthenticationCode(credentials?.apiId as number, code);
 							await sleep(1000);
-							authState = cM.getAuthStateForCredential(credentials?.apiId as number)
+							authState = cM.getAuthStateForCredential(credentials?.apiId as number);
 							if (authState == TelepilotAuthState.WAIT_PASSWORD) {
-								returnData.push("MFA Password:");
+								returnData.push('MFA Password:');
 							} else if (authState == TelepilotAuthState.WAIT_READY) {
-								returnData.push("You have succesfully logged in. You can close this chat and start using Telepilot.");
+								returnData.push(
+									'You have succesfully logged in. You can close this chat and start using Telepilot.',
+								);
 							} else {
-								returnData.push("Unexpected authState: " + authState);
+								returnData.push('Unexpected authState: ' + authState);
 							}
 							break;
 						case TelepilotAuthState.WAIT_PASSWORD:
 							const password = message;
 							await cM.clientLoginSendAuthenticationPassword(
 								credentials?.apiId as number,
-								password
-							)
+								password,
+							);
 							await sleep(1000);
-							returnData.push("authState:" + cM.getAuthStateForCredential(credentials?.apiId as number));
+							returnData.push(
+								'authState:' + cM.getAuthStateForCredential(credentials?.apiId as number),
+							);
 							break;
 						case TelepilotAuthState.WAIT_READY:
-							returnData.push("You are logged in with phoneNumber " + credentials?.phoneNumber);
+							returnData.push('You are logged in with phoneNumber ' + credentials?.phoneNumber);
 							break;
 						default:
-							debug("unexpected authState=" + authState)
-							returnData.push("unexpected authState=" + authState);
+							debug('unexpected authState=' + authState);
+							returnData.push('unexpected authState=' + authState);
 							break;
 					}
 				}
 			} else if (operation === 'closeSession') {
 				try {
-					cM.closeLocalSession(credentials?.apiId as number)
+					cM.closeLocalSession(credentials?.apiId as number);
 				} catch (e) {
 					throw e;
 				}
-				returnData.push("Telegram Account " + credentials?.phoneNumber + " disconnected.");
+				returnData.push('Telegram Account ' + credentials?.phoneNumber + ' disconnected.');
 			} else if (operation === 'removeTdDatabase') {
 				result = await cM.deleteLocalInstance(credentials?.apiId as number);
 				returnData.push({
-					text: "Telegram Account disconnected, local session has been cleared.\nPlease login again. Please check our guide at https://telepilot.co/login-howto\n" +
-						"Or use /help"
+					text:
+						'Telegram Account disconnected, local session has been cleared.\nPlease login again. Please check our guide at https://telepilot.co/login-howto\n' +
+						'Or use /help',
 				});
 			}
 		} else {
@@ -338,24 +354,26 @@ export class TelePilot implements INodeType {
 				credentials?.apiHash as string,
 				credentials?.phoneNumber as string,
 			);
-			debug("clientSession.authState=" + clientSession.authState)
+			debug('clientSession.authState=' + clientSession.authState);
 			if (clientSession.authState != TelepilotAuthState.WAIT_READY) {
-				await cM.closeLocalSession(credentials?.apiId as number)
-				if (this.continueOnFail())
-				{
-					returnData.push({ json: {
-						message: "Telegram account not logged in. " +
-							"Please use ChatTrigger node together with loginWithPhoneNumber action. " +
-							"Please check our guide at https://telepilot.co/login-howto or use /help command in Chat Trigger Node",
+				await cM.closeLocalSession(credentials?.apiId as number);
+				if (this.continueOnFail()) {
+					returnData.push({
+						json: {
+							message:
+								'Telegram account not logged in. ' +
+								'Please use ChatTrigger node together with loginWithPhoneNumber action. ' +
+								'Please check our guide at https://telepilot.co/login-howto or use /help command in Chat Trigger Node',
 							error: {
-								_: "error",
+								_: 'error',
 								code: -1,
-								message: "Please login"
-							}
-					}});
+								message: 'Please login',
+							},
+						},
+					});
 					return [this.helpers.returnJsonArray(returnData)];
 				} else {
-					throw new Error("Please login: https://telepilot.co/login-howto") as NodeOperationError
+					throw new Error('Please login: https://telepilot.co/login-howto') as NodeOperationError;
 				}
 			} else {
 				client = clientSession.client;
@@ -423,11 +441,11 @@ export class TelePilot implements INodeType {
 					});
 					returnData.push(result);
 				} else if (operation === 'getChats') {
-						const result = await client.invoke({
-							_: 'getChats',
-							limit: 9999,
-						});
-						returnData.push(result);
+					const result = await client.invoke({
+						_: 'getChats',
+						limit: 9999,
+					});
+					returnData.push(result);
 				} else if (operation === 'getChat') {
 					const chat_id = this.getNodeParameter('chat_id', 0) as string;
 					const result = await client.invoke({
@@ -525,8 +543,9 @@ export class TelePilot implements INodeType {
 					returnData.push(result);
 				} else if (operation === 'sendChatAction') {
 					const chat_id = this.getNodeParameter('chat_id', 0) as string;
-					const action = { //constructing ChatAction object
-						_: this.getNodeParameter('action', 0) as string
+					const action = {
+						//constructing ChatAction object
+						_: this.getNodeParameter('action', 0) as string,
 					};
 
 					const result = await client.invoke({
@@ -559,32 +578,32 @@ export class TelePilot implements INodeType {
 					const chat_id = this.getNodeParameter('chat_id', 0) as string;
 					const albumsLimit = this.getNodeParameter('albumsLimit', 0) as number;
 					const afterTimestamp = this.getNodeParameter('afterTimestamp', 0) as number;
-					
+
 					// Validate albumsLimit
 					const limit = Math.min(Math.max(albumsLimit || 10, 1), 50);
-					
+
 					// Fetch messages from chat
 					const batchSize = 100;
 					let allMessages: any[] = [];
 					let fromMessageId = 0;
 					let fetchIterations = 0;
 					const maxIterations = 100; // Increased to ensure we get complete albums
-					
+
 					// Status tracking
 					let timestampReached = false;
 					let albumLimitReached = false;
-					
+
 					// Track albums that we need to complete
 					const albumsToComplete = new Set<string>();
 					const completeAlbums = new Set<string>();
-					
+
 					// Determine if we should use timestamp filter
 					const useTimestampFilter = afterTimestamp > 0;
-					
+
 					// Keep fetching until we meet our conditions
 					while (fetchIterations < maxIterations) {
 						fetchIterations++;
-						
+
 						const batch = await client.invoke({
 							_: 'getChatHistory',
 							chat_id,
@@ -593,17 +612,17 @@ export class TelePilot implements INodeType {
 							limit: batchSize,
 							only_local: false,
 						});
-						
+
 						// Check if we got any messages
 						if (!batch.messages || batch.messages.length === 0) {
 							// No more messages available
 							break;
 						}
-						
+
 						// Process messages based on timestamp filter
 						let messagesToAdd = batch.messages;
 						let hitTimestampBoundary = false;
-						
+
 						if (useTimestampFilter) {
 							// Check if we've hit the timestamp boundary
 							const oldestInBatch = batch.messages[batch.messages.length - 1];
@@ -614,10 +633,10 @@ export class TelePilot implements INodeType {
 								messagesToAdd = batch.messages.filter((msg: any) => msg.date > afterTimestamp);
 							}
 						}
-						
+
 						// Add messages to our collection
 						allMessages.push(...messagesToAdd);
-						
+
 						// Track album IDs from new messages
 						for (const msg of messagesToAdd) {
 							const albumId = msg.media_album_id;
@@ -629,38 +648,43 @@ export class TelePilot implements INodeType {
 								}
 							}
 						}
-						
+
 						// Determine which albums we consider "complete" for stopping purposes
 						// An album is complete if we haven't seen new messages for it in the last batch
 						const albumsInCurrentBatch = new Set(
 							batch.messages
-								.filter((msg: any) => msg.media_album_id && msg.media_album_id !== '0' && msg.media_album_id !== 0)
-								.map((msg: any) => String(msg.media_album_id))
+								.filter(
+									(msg: any) =>
+										msg.media_album_id && msg.media_album_id !== '0' && msg.media_album_id !== 0,
+								)
+								.map((msg: any) => String(msg.media_album_id)),
 						);
-						
+
 						// Mark albums as complete if they weren't in the current batch
 						for (const albumId of albumsToComplete) {
 							if (!albumsInCurrentBatch.has(albumId)) {
 								completeAlbums.add(albumId);
 							}
 						}
-						
+
 						// Check if we have enough COMPLETE albums
 						if (completeAlbums.size >= limit) {
 							albumLimitReached = true;
 						}
-						
+
 						// Stopping conditions:
 						// 1. If we have enough complete albums AND either no timestamp filter or we've hit the timestamp
 						// 2. If we hit the timestamp boundary and have fetched messages for all incomplete albums
-						
+
 						let shouldStop = false;
-						
+
 						if (useTimestampFilter && hitTimestampBoundary) {
 							// We've hit the timestamp, but need to ensure albums are complete
 							// Check if all albums we're tracking are complete
-							const incompleteAlbums = new Set([...albumsToComplete].filter(id => !completeAlbums.has(id)));
-							
+							const incompleteAlbums = new Set(
+								[...albumsToComplete].filter((id) => !completeAlbums.has(id)),
+							);
+
 							// Continue fetching if we have incomplete albums that started before the timestamp
 							if (incompleteAlbums.size === 0 || completeAlbums.size >= limit) {
 								shouldStop = true;
@@ -669,18 +693,18 @@ export class TelePilot implements INodeType {
 							// No timestamp filter, check if we have enough complete albums
 							// But we need to ensure the albums we're returning are complete
 							const incompleteAlbumsInLimit = new Set(
-								[...albumsToComplete].slice(0, limit).filter(id => !completeAlbums.has(id))
+								[...albumsToComplete].slice(0, limit).filter((id) => !completeAlbums.has(id)),
 							);
-							
+
 							if (incompleteAlbumsInLimit.size === 0) {
 								shouldStop = true;
 							}
 						}
-						
+
 						if (shouldStop) {
 							break;
 						}
-						
+
 						// Prepare for next iteration
 						const lastMessage = batch.messages[batch.messages.length - 1];
 						if (lastMessage) {
@@ -689,24 +713,28 @@ export class TelePilot implements INodeType {
 							// No more messages to fetch
 							break;
 						}
-						
+
 						// Handle case where TDLib returns very small batches
 						// Continue fetching even with small batches to ensure we get complete albums
 						if (batch.messages.length < 5 && !hitTimestampBoundary) {
 							// Small batch but haven't hit boundary yet, continue
 							continue;
 						}
-						
+
 						// Safety check: stop if we're not making progress and have enough complete albums
-						if (batch.messages.length === 1 && fetchIterations > 20 && completeAlbums.size >= limit) {
+						if (
+							batch.messages.length === 1 &&
+							fetchIterations > 20 &&
+							completeAlbums.size >= limit
+						) {
 							break;
 						}
 					}
-					
+
 					// Group messages into albums
 					const albumGroups: { [key: string]: any[] } = {};
 					const standaloneMessages: any[] = [];
-					
+
 					for (const msg of allMessages) {
 						const albumId = msg.media_album_id;
 						if (albumId && albumId !== '0' && albumId !== 0) {
@@ -718,20 +746,20 @@ export class TelePilot implements INodeType {
 							standaloneMessages.push(msg);
 						}
 					}
-					
+
 					// Update album_limit_reached based on actual grouped albums
 					const actualAlbumCount = Object.keys(albumGroups).length;
 					if (actualAlbumCount >= limit) {
 						albumLimitReached = true;
 					}
-					
+
 					// Prepare album results
 					const albums = [];
 					let albumCount = 0;
-					
+
 					for (const [albumId, messages] of Object.entries(albumGroups)) {
 						if (albumCount >= limit) break;
-						
+
 						// Sort messages in album by ID
 						messages.sort((a, b) => {
 							const idA = BigInt(a.id || 0);
@@ -740,7 +768,7 @@ export class TelePilot implements INodeType {
 							if (idA > idB) return 1;
 							return 0;
 						});
-						
+
 						// Extract caption from first message with content
 						let caption = '';
 						for (const msg of messages) {
@@ -754,10 +782,10 @@ export class TelePilot implements INodeType {
 								}
 							}
 						}
-						
+
 						// Check if this album is marked as complete
 						const isComplete = completeAlbums.has(albumId);
-						
+
 						albums.push({
 							album_id: albumId,
 							chat_id: chat_id,
@@ -769,10 +797,10 @@ export class TelePilot implements INodeType {
 							is_complete: isComplete,
 							messages: messages,
 						});
-						
+
 						albumCount++;
 					}
-					
+
 					// Add standalone messages if we need more items and haven't reached limit
 					if (albumCount < limit) {
 						const standaloneToAdd = Math.min(limit - albumCount, standaloneMessages.length);
@@ -786,7 +814,7 @@ export class TelePilot implements INodeType {
 									caption = msg.content.text.text;
 								}
 							}
-							
+
 							albums.push({
 								album_id: '0', // Indicates standalone message
 								chat_id: chat_id,
@@ -800,11 +828,15 @@ export class TelePilot implements INodeType {
 							});
 						}
 					}
-					
+
 					// Count complete vs incomplete albums in the results
-					const completeAlbumsInResults = albums.filter(a => a.album_id !== '0' && a.is_complete).length;
-					const incompleteAlbumsInResults = albums.filter(a => a.album_id !== '0' && !a.is_complete).length;
-					
+					const completeAlbumsInResults = albums.filter(
+						(a) => a.album_id !== '0' && a.is_complete,
+					).length;
+					const incompleteAlbumsInResults = albums.filter(
+						(a) => a.album_id !== '0' && !a.is_complete,
+					).length;
+
 					returnData.push({
 						albums: albums,
 						total_albums_found: Object.keys(albumGroups).length,
@@ -859,7 +891,7 @@ export class TelePilot implements INodeType {
 						chat_id,
 						message_ids: idsArray,
 						source: null,
-						force_read: force_read
+						force_read: force_read,
 					});
 					returnData.push(result);
 				} else if (operation === 'sendMessage') {
@@ -888,11 +920,20 @@ export class TelePilot implements INodeType {
 					let videoDuration: number | null = this.getNodeParameter('videoDuration', 0) as number;
 					let videoWidth: number | null = this.getNodeParameter('videoWidth', 0) as number;
 					let videoHeight: number | null = this.getNodeParameter('videoHeight', 0) as number;
-					let videoSupportsStreaming: boolean | null = this.getNodeParameter('videoSupportsStreaming', 0) as boolean;
+					let videoSupportsStreaming: boolean | null = this.getNodeParameter(
+						'videoSupportsStreaming',
+						0,
+					) as boolean;
 
 					let thumbnailWidth: number | null = this.getNodeParameter('thumbnailWidth', 0) as number;
-					let thumbnailHeight: number | null = this.getNodeParameter('thumbnailHeight', 0) as number;
-					let thumbnailFilePath: string | null = this.getNodeParameter('thumbnailFilePath', 0) as string;
+					let thumbnailHeight: number | null = this.getNodeParameter(
+						'thumbnailHeight',
+						0,
+					) as number;
+					let thumbnailFilePath: string | null = this.getNodeParameter(
+						'thumbnailFilePath',
+						0,
+					) as string;
 
 					const reply_to_msg_id = this.getNodeParameter('reply_to_msg_id', 0) as string;
 					const message_thread_id = this.getNodeParameter('message_thread_id', 0) as number;
@@ -919,8 +960,8 @@ export class TelePilot implements INodeType {
 							thumbnail: {
 								_: 'inputThumbnail',
 								thumbnail: {
-									'_': 'inputFileLocal',
-									path: thumbnailFilePath
+									_: 'inputFileLocal',
+									path: thumbnailFilePath,
 								},
 								width: thumbnailWidth,
 								height: thumbnailHeight,
@@ -960,7 +1001,10 @@ export class TelePilot implements INodeType {
 						// Handle binary data source
 						if (audioSource === 'binaryData') {
 							try {
-								const binaryPropertyName = this.getNodeParameter('audioBinaryPropertyName', 0) as string;
+								const binaryPropertyName = this.getNodeParameter(
+									'audioBinaryPropertyName',
+									0,
+								) as string;
 								outputItem.binaryPropertyName = binaryPropertyName;
 
 								// Get binary data with better error messages
@@ -1047,7 +1091,10 @@ export class TelePilot implements INodeType {
 
 										// Telegram voice messages typically work best with .ogg format
 										if (fileExtension !== 'ogg') {
-											outputItem.warning = 'Voice messages work best with .ogg format. Your file is in .' + fileExtension + ' format. Consider converting to .ogg for better compatibility.';
+											outputItem.warning =
+												'Voice messages work best with .ogg format. Your file is in .' +
+												fileExtension +
+												' format. Consider converting to .ogg for better compatibility.';
 											debug('Warning: Voice message format may not be optimal:', fileExtension);
 										}
 
@@ -1118,14 +1165,18 @@ export class TelePilot implements INodeType {
 									chat_id: chat_id,
 									sendAsVoice: sendAsVoice,
 									filePath: audioFilePath,
-									fileSize: outputItem.fileSize
+									fileSize: outputItem.fileSize,
 								};
 
 								// Log detailed error information
-								debug('Telegram API error details:', JSON.stringify(outputItem.errorDetails, null, 2));
+								debug(
+									'Telegram API error details:',
+									JSON.stringify(outputItem.errorDetails, null, 2),
+								);
 
 								if (apiError.message.includes('User restricted receiving of video messages')) {
-									outputItem.error = 'The recipient has restricted receiving of voice messages. Please try sending as a regular audio file instead.';
+									outputItem.error =
+										'The recipient has restricted receiving of voice messages. Please try sending as a regular audio file instead.';
 									outputItem.errorType = 'USER_RESTRICTION';
 								} else if (apiError.message.includes('FILE_REFERENCE_EXPIRED')) {
 									outputItem.error = 'File reference has expired. Please try again.';
@@ -1134,7 +1185,8 @@ export class TelePilot implements INodeType {
 									outputItem.error = 'Invalid file ID. Please check the file and try again.';
 									outputItem.errorType = 'FILE_ID_INVALID';
 								} else if (apiError.message.includes('CHAT_WRITE_FORBIDDEN')) {
-									outputItem.error = 'Cannot send messages to this chat. You may not have permission.';
+									outputItem.error =
+										'Cannot send messages to this chat. You may not have permission.';
 									outputItem.errorType = 'CHAT_WRITE_FORBIDDEN';
 								} else {
 									outputItem.error = `Telegram API error: ${apiError.message}`;
@@ -1251,7 +1303,6 @@ export class TelePilot implements INodeType {
 						.map((s) => s.toString().trim())
 						.filter((s) => s.length > 0);
 
-
 					const result = await client.invoke({
 						_: 'forwardMessages',
 						chat_id,
@@ -1277,38 +1328,37 @@ export class TelePilot implements INodeType {
 					});
 					returnData.push(result);
 				}
-			} else if(resource === 'request') {
+			} else if (resource === 'request') {
 				if (operation === 'customRequest') {
-					const jsonString = this.getNodeParameter('request_json', 0)  as string;
-					const obj = JSON.parse(jsonString)
+					const jsonString = this.getNodeParameter('request_json', 0) as string;
+					const obj = JSON.parse(jsonString);
 					debug(`Request JSON is : ${jsonString}`);
 					result = await client.invoke(obj);
 					returnData.push(result);
 				}
 			}
 		} catch (e) {
-			if (e.message === "A closed client cannot be reused, create a new Client") {
+			if (e.message === 'A closed client cannot be reused, create a new Client') {
 				cM.markClientAsClosed(credentials?.apiId as number);
-				if (this.continueOnFail())
-				{
+				if (this.continueOnFail()) {
 					returnData.push({ json: { message: e.message, error: e } });
 				} else {
-					throw new Error("Session was closed or terminated. Please login again: https://telepilot.co/login-howto") as NodeOperationError
+					throw new Error(
+						'Session was closed or terminated. Please login again: https://telepilot.co/login-howto',
+					) as NodeOperationError;
 				}
-			} else 	if (e.message === "Unauthorized") {
+			} else if (e.message === 'Unauthorized') {
 				cM.markClientAsClosed(credentials?.apiId as number);
-				if (this.continueOnFail())
-				{
+				if (this.continueOnFail()) {
 					returnData.push({ json: { message: e.message, error: e } });
 				} else {
-					throw new Error("Please login: https://telepilot.co/login-howto") as NodeOperationError
+					throw new Error('Please login: https://telepilot.co/login-howto') as NodeOperationError;
 				}
 			} else {
-				if (this.continueOnFail())
-				{
+				if (this.continueOnFail()) {
 					returnData.push({ json: { message: e.message, error: e } });
 				} else {
-					throw(e as NodeOperationError);
+					throw e as NodeOperationError;
 				}
 			}
 		}

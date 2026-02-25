@@ -79,7 +79,6 @@ export class TelePilotNodeConnectionManager {
 		// let result = await clientSession.client.invoke({
 		// 	_: 'close'
 		// })
-		clientSession.client.off;
 		let result = clientSession.client.close();
 		delete this.clientSessions[apiId];
 		debug(Object.keys(this.clientSessions));
@@ -181,12 +180,14 @@ export class TelePilotNodeConnectionManager {
 		apiHash: string,
 		phoneNumber: string,
 	): Promise<ClientSession> {
-		let client: typeof Client;
-		if (this.clientSessions[apiId] === undefined) {
-			client = this.initClient(apiId, apiHash);
-			let clientSession = new ClientSession(client, TelepilotAuthState.NO_CONNECTION, phoneNumber);
-			this.clientSessions[apiId] = clientSession;
+		if (this.clientSessions[apiId] !== undefined) {
+			return this.clientSessions[apiId];
 		}
+
+		let client: typeof Client = this.initClient(apiId, apiHash);
+		let clientSession = new ClientSession(client, TelepilotAuthState.NO_CONNECTION, phoneNumber);
+		this.clientSessions[apiId] = clientSession;
+
 		const authHandler = (update: IDataObject) => {
 			if (update._ === 'updateAuthorizationState') {
 				debug('authHandler.Got updateAuthorizationState:', JSON.stringify(update, null, 2));
@@ -203,7 +204,22 @@ export class TelePilotNodeConnectionManager {
 
 		this.clientSessions[apiId].client.on('update', authHandler);
 
-		await sleep(1000);
+		const maxWaitMs = 10000;
+		const pollIntervalMs = 200;
+		let waited = 0;
+		while (waited < maxWaitMs) {
+			await sleep(pollIntervalMs);
+			waited += pollIntervalMs;
+			const currentState = this.clientSessions[apiId]?.authState;
+			if (
+				currentState !== TelepilotAuthState.NO_CONNECTION &&
+				currentState !== TelepilotAuthState.WAIT_TDLIB_PARAMS &&
+				currentState !== TelepilotAuthState.WAIT_ENCRYPTION_KEY
+			) {
+				break;
+			}
+		}
+
 		return this.clientSessions[apiId];
 	}
 
