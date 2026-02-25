@@ -180,43 +180,48 @@ export class TelePilotNodeConnectionManager {
 		apiHash: string,
 		phoneNumber: string,
 	): Promise<ClientSession> {
-		if (this.clientSessions[apiId] !== undefined) {
-			return this.clientSessions[apiId];
+		if (this.clientSessions[apiId] === undefined) {
+			let client: typeof Client = this.initClient(apiId, apiHash);
+			let clientSession = new ClientSession(client, TelepilotAuthState.NO_CONNECTION, phoneNumber);
+			this.clientSessions[apiId] = clientSession;
+
+			const authHandler = (update: IDataObject) => {
+				if (update._ === 'updateAuthorizationState') {
+					debug('authHandler.Got updateAuthorizationState:', JSON.stringify(update, null, 2));
+					const authorization_state = update.authorization_state as IDataObject;
+					if (this.clientSessions[apiId] !== undefined) {
+						this.clientSessions[apiId].authState = getEnumFromString(
+							TelepilotAuthState,
+							authorization_state._ as string,
+						);
+						debug('set clientSession.authState to ' + this.clientSessions[apiId].authState);
+					}
+				}
+			};
+
+			this.clientSessions[apiId].client.on('update', authHandler);
 		}
 
-		let client: typeof Client = this.initClient(apiId, apiHash);
-		let clientSession = new ClientSession(client, TelepilotAuthState.NO_CONNECTION, phoneNumber);
-		this.clientSessions[apiId] = clientSession;
-
-		const authHandler = (update: IDataObject) => {
-			if (update._ === 'updateAuthorizationState') {
-				debug('authHandler.Got updateAuthorizationState:', JSON.stringify(update, null, 2));
-				const authorization_state = update.authorization_state as IDataObject;
-				if (this.clientSessions[apiId] !== undefined) {
-					this.clientSessions[apiId].authState = getEnumFromString(
-						TelepilotAuthState,
-						authorization_state._ as string,
-					);
-					debug('set clientSession.authState to ' + this.clientSessions[apiId].authState);
+		const currentState = this.clientSessions[apiId]?.authState;
+		if (
+			currentState === TelepilotAuthState.NO_CONNECTION ||
+			currentState === TelepilotAuthState.WAIT_TDLIB_PARAMS ||
+			currentState === TelepilotAuthState.WAIT_ENCRYPTION_KEY
+		) {
+			const maxWaitMs = 10000;
+			const pollIntervalMs = 200;
+			let waited = 0;
+			while (waited < maxWaitMs) {
+				await sleep(pollIntervalMs);
+				waited += pollIntervalMs;
+				const state = this.clientSessions[apiId]?.authState;
+				if (
+					state !== TelepilotAuthState.NO_CONNECTION &&
+					state !== TelepilotAuthState.WAIT_TDLIB_PARAMS &&
+					state !== TelepilotAuthState.WAIT_ENCRYPTION_KEY
+				) {
+					break;
 				}
-			}
-		};
-
-		this.clientSessions[apiId].client.on('update', authHandler);
-
-		const maxWaitMs = 10000;
-		const pollIntervalMs = 200;
-		let waited = 0;
-		while (waited < maxWaitMs) {
-			await sleep(pollIntervalMs);
-			waited += pollIntervalMs;
-			const currentState = this.clientSessions[apiId]?.authState;
-			if (
-				currentState !== TelepilotAuthState.NO_CONNECTION &&
-				currentState !== TelepilotAuthState.WAIT_TDLIB_PARAMS &&
-				currentState !== TelepilotAuthState.WAIT_ENCRYPTION_KEY
-			) {
-				break;
 			}
 		}
 
