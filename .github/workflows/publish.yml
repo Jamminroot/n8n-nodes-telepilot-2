@@ -82,11 +82,11 @@ jobs:
           npm install n8n-nodes-telepilot-2-${{ needs.build.outputs.PACKAGE_VERSION }}.tgz
       - name: Run n8n in Ubuntu n8n
         run: |
-          N8N_HOST=0.0.0.0 N8N_PORT=5678 N8N_ENCRYPTION_KEY=${{ secrets.N8N_KEY }} npx --yes n8n@1.89.0 \
+          N8N_HOST=0.0.0.0 N8N_PORT=5678 N8N_ENCRYPTION_KEY=${{ secrets.N8N_KEY }} npx --yes n8n@2.8.3 \
             import:credentials -i ~/.n8n/nodes/node_modules/n8n-nodes-telepilot-2/deploy/test-n8n-imports/credentials/credential-dummy.json
-          npx n8n@1.89.0 \
+          npx n8n@2.8.3 \
             import:workflow -i ~/.n8n/nodes/node_modules/n8n-nodes-telepilot-2/deploy/test-n8n-imports/workflows/Telepilot_getMe.json
-          npx n8n@1.89.0 execute --id r2a0u5tez9fg1WW6 > execute-result.log 2>&1 || exit 0
+          npx n8n@2.8.3 execute --id r2a0u5tez9fg1WW6 > execute-result.log 2>&1 || exit 0
       - name: Test Telepilot GetMe execution result
         run: |
           cat execute-result.log
